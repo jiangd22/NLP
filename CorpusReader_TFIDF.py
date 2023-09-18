@@ -19,9 +19,6 @@ class CorpusReader_TFIDF:
         self.stemFirst = stemFirst
         self.ignoreCase = ignoreCase
 
-        # self.term_tf = []
-        # self.term_idf = {}
-        # self.term_tfidf = {}
 
     def fields(self):
         return self.corpus.fields()
@@ -71,15 +68,39 @@ class CorpusReader_TFIDF:
     # tfidf(fileid, returnZero = false) : return the TF-IDF for the specific document in the corpus (specified by fileid). The vector is represented by a dictionary/hash in python. The keys are the terms, and the values are the tf-idf value of the dimension. If returnZero is true, then the dictionary will contain terms that have 0 value for that vector, otherwise the vector will omit those terms
     def tfidf(self, fileid, returnZero = False):
         words = self.wordProcess(self.words(fileid))
-        tfidf_dict = {}
+        tfidf_dict = defaultdict(float)
+        tf_dict = defaultdict(float)
+        if (self.tf_method == "raw"):
+            for word in words:
+                tf_dict[word] += 1
+            for word in tf_dict:
+                tf_dict[word] = tf_dict[word] / len(words)
+        elif (self.tf_method == "log"):
+            for word in words:
+                tf_dict[word] += 1
+            for word in tf_dict:
+                tf_dict[word] = 1 + math.log2(tf_dict[word]/len(words))
+
+        N = len(self.corpus.fileids())
+        idf_dict = defaultdict(float)
         for word in words:
-            tfidf_dict[word] += 1
-        for word in tfidf_dict:
-            tfidf_dict[word] = tfidf_dict[word] / len(words)
-        if returnZero:
-            return tfidf_dict
-        else:
-            return {k: v for k, v in tfidf_dict.items() if v != 0}
+            ni = 0
+            for fileid in self.corpus.fileids():
+                if word in self.wordProcess(self.words(fileid)):
+                    ni += 1
+            if self.idf_method == "base":
+                idf_dict[word] = math.log2(N / ni)
+            elif self.idf_method == "smooth":
+                idf_dict[word] = math.log2(1+(N / ni))
+
+        for word in words:
+            if returnZero:
+                tfidf_dict[word] = tf_dict[word] * idf_dict[word]
+            else:
+                if tf_dict[word] * idf_dict[word] != 0:
+                    tfidf_dict[word] = tf_dict[word] * idf_dict[word]
+
+        return tfidf_dict
 
     # tfidfAll(returnZero = false) : return the TF-IDF for all documents in the corpus. It will be returned as a dictionary. The key is the fileid of each document, for each document the value is the tfidf of that document (using the same format as above).
     def tfidfAll(self, returnZero = False):
