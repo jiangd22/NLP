@@ -104,10 +104,10 @@ class CorpusReader_TFIDF:
 
     # tfidfAll(returnZero = false) : return the TF-IDF for all documents in the corpus. It will be returned as a dictionary. The key is the fileid of each document, for each document the value is the tfidf of that document (using the same format as above).
     def tfidfAll(self, returnZero = False):
-        tfidf_dict = {}
+        tfidfAll_dict = defaultdict(float)
         for fileid in self.corpus.fileids():
-            tfidf_dict[fileid] = self.tfidf(fileid, returnZero)
-        return tfidf_dict
+            tfidfAll_dict[fileid] = self.tfidf(fileid, returnZero)
+        return tfidfAll_dict
 
     #tfidfNew([words]) : return the tf-idf of a “new” document, represented by a list of words. You should honor the various parameters (ignoreCase, toStem etc.) when preprocessing the new document. Also, the idf of each word should not be changed (i.e. the “new” document should not be treated as part of the corpus).tfidfNew([words]) : return the tf-idf of a “new” document, represented by a list of words. You should honor the various parameters (ignoreCase, toStem etc.) when preprocessing the new document. Also, the idf of each word should not be changed (i.e. the “new” document should not be treated as part of the corpus).
     def tfidfNew(self, words):
