@@ -70,15 +70,47 @@ class CorpusReader_TFIDF:
 
     #tfidf(fileid, returnZero = false) : return the TF-IDF for the specific document in the corpus (specified by fileid). The vector is represented by a dictionary/hash in python. The keys are the terms, and the values are the tf-idf value of the dimension. If returnZero is true, then the dictionary will contain terms that have 0 value for that vector, otherwise the vector will omit those terms
     def tfidf(self, fileid, returnZero = False):
+        words = self.wordProcess(self.words(fileid))
         tfidf_dict = {}
-        tf = self.tf(fileid)
-        idf = self.idf()
-        for term in tf:
-            tfidf_dict[term] = tf[term] * idf[term]
+        for word in words:
+            tfidf_dict[word] += 1
+        for word in tfidf_dict:
+            tfidf_dict[word] = tfidf_dict[word] / len(words)
         if returnZero:
             return tfidf_dict
         else:
             return {k: v for k, v in tfidf_dict.items() if v != 0}
+
+    def tfidfAll(self, returnZero = False):
+        tfidf_dict = {}
+        for fileid in self.corpus.fileids():
+            tfidf_dict[fileid] = self.tfidf(fileid, returnZero)
+        return tfidf_dict
+
+    def cosine_sim(self, fileid1, fileid2):
+        tfidf_dict = self.tfidfAll()
+        fileid1_dict = tfidf_dict[fileid1]
+        fileid2_dict = tfidf_dict[fileid2]
+        dot_product = 0
+        for word in fileid1_dict:
+            if word in fileid2_dict:
+                dot_product += fileid1_dict[word] * fileid2_dict[word]
+        return dot_product / (math.sqrt(sum([x ** 2 for x in fileid1_dict.values()])) * math.sqrt(sum([x ** 2 for x in fileid2_dict.values()])))
+
+    def cosine_sim_new(self, words, fileid):
+        tfidf_dict = self.tfidfAll()
+        fileid_dict = tfidf_dict[fileid]
+        dot_product = 0
+        for word in words:
+            if word in fileid_dict:
+                dot_product += fileid_dict[word]
+        return dot_product / (math.sqrt(sum([x ** 2 for x in words])) * math.sqrt(sum([x ** 2 for x in fileid_dict.values()])))
+
+
+
+
+
+
 
 
 
