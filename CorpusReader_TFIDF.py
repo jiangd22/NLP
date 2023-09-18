@@ -68,7 +68,7 @@ class CorpusReader_TFIDF:
                 words = [stemmer.stem(word) for word in words]
         return words
 
-    #tfidf(fileid, returnZero = false) : return the TF-IDF for the specific document in the corpus (specified by fileid). The vector is represented by a dictionary/hash in python. The keys are the terms, and the values are the tf-idf value of the dimension. If returnZero is true, then the dictionary will contain terms that have 0 value for that vector, otherwise the vector will omit those terms
+    # tfidf(fileid, returnZero = false) : return the TF-IDF for the specific document in the corpus (specified by fileid). The vector is represented by a dictionary/hash in python. The keys are the terms, and the values are the tf-idf value of the dimension. If returnZero is true, then the dictionary will contain terms that have 0 value for that vector, otherwise the vector will omit those terms
     def tfidf(self, fileid, returnZero = False):
         words = self.wordProcess(self.words(fileid))
         tfidf_dict = {}
@@ -81,39 +81,80 @@ class CorpusReader_TFIDF:
         else:
             return {k: v for k, v in tfidf_dict.items() if v != 0}
 
+    # tfidfAll(returnZero = false) : return the TF-IDF for all documents in the corpus. It will be returned as a dictionary. The key is the fileid of each document, for each document the value is the tfidf of that document (using the same format as above).
     def tfidfAll(self, returnZero = False):
         tfidf_dict = {}
         for fileid in self.corpus.fileids():
             tfidf_dict[fileid] = self.tfidf(fileid, returnZero)
         return tfidf_dict
 
+    #tfidfNew([words]) : return the tf-idf of a “new” document, represented by a list of words. You should honor the various parameters (ignoreCase, toStem etc.) when preprocessing the new document. Also, the idf of each word should not be changed (i.e. the “new” document should not be treated as part of the corpus).tfidfNew([words]) : return the tf-idf of a “new” document, represented by a list of words. You should honor the various parameters (ignoreCase, toStem etc.) when preprocessing the new document. Also, the idf of each word should not be changed (i.e. the “new” document should not be treated as part of the corpus).
+    def tfidfNew(self, words):
+        words = self.wordProcess(words)
+        tfidf_dict = {}
+        for word in words:
+            tfidf_dict[word] += 1
+        for word in tfidf_dict:
+            tfidf_dict[word] = tfidf_dict[word] / len(words)
+        return tfidf_dict
+
+    # idf() : return the idf of each term as a dictionary : keys are the terms, and values are the idf
+    def idf(self):
+        idf_dict = {}
+        for fileid in self.corpus.fileids():
+            words = self.wordProcess(self.words(fileid))
+            for word in words:
+                idf_dict[word] += 1
+        for word in idf_dict:
+            idf_dict[word] = math.log(len(self.corpus.fileids()) / idf_dict[word])
+        return idf_dict
+
+    # cosine_sim([fileid1, fileid2]) return the cosine similarity between two documents in the corpus
     def cosine_sim(self, fileid1, fileid2):
         tfidf_dict = self.tfidfAll()
-        fileid1_dict = tfidf_dict[fileid1]
-        fileid2_dict = tfidf_dict[fileid2]
-        dot_product = 0
-        for word in fileid1_dict:
-            if word in fileid2_dict:
-                dot_product += fileid1_dict[word] * fileid2_dict[word]
-        return dot_product / (math.sqrt(sum([x ** 2 for x in fileid1_dict.values()])) * math.sqrt(sum([x ** 2 for x in fileid2_dict.values()])))
+        words1 = tfidf_dict[fileid1]
+        words2 = tfidf_dict[fileid2]
+        words = set(words1.keys()) | set(words2.keys())
+        numerator = 0
+        denominator1 = 0
+        denominator2 = 0
+        for word in words:
+            numerator += words1[word] * words2[word]
+            denominator1 += words1[word] ** 2
+            denominator2 += words2[word] ** 2
+        return numerator / (math.sqrt(denominator1) * math.sqrt(denominator2))
 
+    # cosine_sim_new([words], fileid): return the cosine similary between a “new” document (as if
+    # specified like the tfidf_new() method) and the documents specified by fileid.
     def cosine_sim_new(self, words, fileid):
         tfidf_dict = self.tfidfAll()
-        fileid_dict = tfidf_dict[fileid]
-        dot_product = 0
+        words1 = tfidf_dict[fileid]
+        words2 = self.tfidfNew(words)
+        words = set(words1.keys()) | set(words2.keys())
+        numerator = 0
+        denominator1 = 0
+        denominator2 = 0
         for word in words:
-            if word in fileid_dict:
-                dot_product += fileid_dict[word]
-        return dot_product / (math.sqrt(sum([x ** 2 for x in words])) * math.sqrt(sum([x ** 2 for x in fileid_dict.values()])))
+            numerator += words1[word] * words2[word]
+            denominator1 += words1[word] ** 2
+            denominator2 += words2[word] ** 2
+        return numerator / (math.sqrt(denominator1) * math.sqrt(denominator2))
 
-
-
-
-
-
-
-
-
-
-
-
+    # query([words]) : return a list of (document, cosine_sim) tuples that calculate the cosine similarity between the “new” document (specified by the list of words as the document). The list should be ordered in decreasing order of cosine similarity.
+    def query(self, words):
+        tfidf_dict = self.tfidfAll()
+        words2 = self.tfidfNew(words)
+        words = set(words2.keys())
+        query_list = []
+        for fileid in self.corpus.fileids():
+            words1 = tfidf_dict[fileid]
+            numerator = 0
+            denominator1 = 0
+            denominator2 = 0
+            for word in words:
+                numerator += words1[word] * words2[word]
+                denominator1 += words1[word] ** 2
+                denominator2 += words2[word] ** 2
+            query_list.append((fileid, numerator / (math.sqrt(denominator1) * math.sqrt(denominator2))))
+        query_list.sort(key=lambda x: x[1], reverse=True)
+        return query_list
